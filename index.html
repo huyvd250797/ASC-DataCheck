@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ASC-DataCheck — Kiểm tra & chuẩn hóa dữ liệu</title>
+<meta name="description" content="Công cụ kiểm tra, phân tích và chuẩn hóa dữ liệu Excel trước khi import vào hệ thống." />
+<link rel="stylesheet" href="css/styles.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='2' y='3' width='20' height='18' rx='3' fill='%235b8cff'/><path d='M7 12.5l3.2 3.2L17.5 8.5' stroke='white' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+</head>
+<body>
+
+<!-- ============ SPLASH ============ -->
+<div id="splash">
+  <svg class="logo-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="2" y="3" width="20" height="18" rx="3" fill="#5b8cff"/>
+    <path d="M2 8.5h20M8.5 8.5V21" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+    <path d="M7 13.6l3.1 3.1L17.4 9.4" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <h1>ASC-DATACHECK</h1>
+  <p>Kiểm tra &amp; chuẩn hóa dữ liệu</p>
+  <div class="splash-bar"><i></i></div>
+</div>
+
+<div class="app">
+  <!-- ============ HEADER ============ -->
+  <header class="app-header">
+    <button class="brand" id="brandBtn" title="Về màn hình chính">
+      <svg class="logo-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="2" y="3" width="20" height="18" rx="3" fill="#5b8cff"/>
+        <path d="M2 8.5h20M8.5 8.5V21" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+        <path d="M7 13.6l3.1 3.1L17.4 9.4" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <b>ASC-DATACHECK</b>
+      <span>Kiểm tra &amp; chuẩn hóa dữ liệu</span>
+    </button>
+
+    <nav class="steps" id="steps" aria-label="Các bước">
+      <button class="step" data-step="1"><i>1</i>Tệp</button>
+      <button class="step" data-step="2"><i>2</i>Sheet</button>
+      <button class="step" data-step="3"><i>3</i>Chế độ</button>
+      <button class="step" data-step="4"><i>4</i>Ghép cột</button>
+      <button class="step" data-step="5"><i>5</i>Kết quả</button>
+    </nav>
+
+    <div class="header-space"></div>
+
+    <button class="icon-btn tooltip-host" id="helpBtn" data-tip="Hướng dẫn sử dụng" aria-label="Hướng dẫn sử dụng">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="9.2"/>
+        <path d="M9.4 9.2a2.7 2.7 0 015.2 1c0 1.8-2.6 2.2-2.6 4" stroke-linecap="round"/>
+        <circle cx="12" cy="17.2" r="1" fill="currentColor" stroke="none"/>
+      </svg>
+    </button>
+    <button class="icon-btn tooltip-host" id="themeBtn" data-tip="Đổi giao diện" aria-label="Đổi giao diện sáng/tối">
+      <svg id="iconMoon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M20 14.2A8.2 8.2 0 019.8 4 8.4 8.4 0 1020 14.2z" stroke-linejoin="round"/>
+      </svg>
+      <svg id="iconSun" class="hidden" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="4.2"/>
+        <path d="M12 2.4v2.2M12 19.4v2.2M2.4 12h2.2M19.4 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <span class="version" id="versionLabel">v1.0.0</span>
+  </header>
+
+  <main class="stage" id="stage">
+
+    <!-- ============ VIEW: HOME ============ -->
+    <section class="view active" id="viewHome">
+      <div class="pad">
+        <div class="hero">
+          <h2>Tìm lỗi dữ liệu trước khi import</h2>
+          <p>Tải tệp Excel lên, chọn cách kiểm tra, nhận danh sách lỗi kèm dòng, cột và cách xử lý.</p>
+        </div>
+
+        <div class="dropzone" id="dropzone">
+          <div class="dz-icon">
+            <svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.4">
+              <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3.5 15v3.2A2.3 2.3 0 005.8 20.5h12.4a2.3 2.3 0 002.3-2.3V15" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h3>Kéo thả tệp Excel vào đây</h3>
+          <p>hoặc chọn tệp từ máy của bạn</p>
+          <button class="btn primary" id="pickBtn">Chọn tệp</button>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm,.csv" class="hidden" />
+          <div class="dz-formats">.xlsx · .xls · .xlsm · .csv</div>
+        </div>
+
+        <div class="privacy-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5.5c0 4.2-2.9 7.9-7 9.5-4.1-1.6-7-5.3-7-9.5V6l7-3z" stroke-linejoin="round"/><path d="M9 12l2.2 2.2L15.4 10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Dữ liệu được xử lý trực tiếp trên thiết bị và không được tải lên máy chủ.
+        </div>
+
+        <div class="recent card" id="recentCard">
+          <div class="card-head">
+            <h3>Kiểm tra gần đây</h3>
+            <div class="header-space"></div>
+            <button class="btn ghost sm" id="clearHistoryBtn">Xóa lịch sử</button>
+          </div>
+          <div id="recentList"><div class="empty-state">Chưa có phiên kiểm tra dữ liệu.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: WORKBOOK ============ -->
+    <section class="view" id="viewSheet">
+      <div class="pad">
+        <div class="file-bar">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--valid)" stroke-width="1.6"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" stroke-linejoin="round"/><path d="M14 3v5h5" stroke-linejoin="round"/></svg>
+          <div style="flex:1;min-width:0">
+            <div class="fb-name" id="fbName">—</div>
+            <div class="fb-meta" id="fbMeta">—</div>
+          </div>
+          <button class="btn ghost sm" id="changeFileBtn">Đổi tệp</button>
+        </div>
+
+        <div class="eyebrow" style="margin-bottom:9px">Chọn sheet cần kiểm tra</div>
+        <div class="sheet-grid" id="sheetGrid"></div>
+
+        <div class="card" style="margin-top:20px" id="previewCard">
+          <div class="card-head">
+            <h3>Xem trước dữ liệu</h3>
+            <div class="header-space"></div>
+            <label class="lbl" for="headerRowSel">Dòng tiêu đề</label>
+            <select class="inp" id="headerRowSel"></select>
+            <label class="checkline" style="margin-left:8px"><input type="checkbox" id="skipEmptyRows" checked /> Bỏ qua dòng trống</label>
+          </div>
+          <div id="previewHost" style="height:300px;display:flex;flex-direction:column"></div>
+          <div id="structureNotes" style="padding:10px 14px;border-top:1px solid var(--line-soft)"></div>
+        </div>
+
+        <div class="eyebrow" style="margin:24px 0 9px">Bạn muốn kiểm tra theo cách nào?</div>
+        <div class="mode-grid">
+          <button class="mode-card" id="modeQuick">
+            <div class="mode-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M13 2.5L4.5 13.5H11l-1 8 8.5-11H12l1-8z" stroke-linejoin="round"/></svg></div>
+            <h4>Kiểm tra nhanh</h4>
+            <p>Không cần cấu hình. Tự phát hiện ô trống, giá trị trùng, khoảng trắng thừa, kiểu dữ liệu lẫn lộn, mã mất số 0 và thống kê từng cột.</p>
+          </button>
+          <button class="mode-card" id="modeRule">
+            <div class="mode-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6h16M4 12h16M4 18h9" stroke-linecap="round"/><path d="M15.5 17.5l1.8 1.8 3.2-3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h4>Kiểm tra theo bộ rule</h4>
+            <p>Chọn bộ rule nghiệp vụ (Sinh viên, Lớp học, Môn học…), ghép cột Excel với field của rule rồi chạy đầy đủ: bắt buộc, trùng, định dạng, danh mục tham chiếu.</p>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: MAPPING ============ -->
+    <section class="view" id="viewMapping">
+      <div class="pad">
+        <div class="field-row" style="margin-bottom:16px">
+          <div style="flex:1">
+            <div class="eyebrow">Bộ rule</div>
+            <select class="inp" id="ruleSetSel" style="margin-top:5px;min-width:260px"></select>
+          </div>
+          <button class="btn ghost sm" id="importRuleBtn">Nhập rule (JSON)</button>
+          <button class="btn ghost sm" id="exportRuleBtn">Xuất rule (JSON)</button>
+          <input type="file" id="ruleFileInput" accept=".json" class="hidden" />
+        </div>
+        <div id="ruleSetDesc" style="color:var(--muted);font-size:12.5px;margin-bottom:16px"></div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Ghép cột</h3>
+            <div class="header-space"></div>
+            <span style="color:var(--muted);font-size:12px" id="mapStatusText"></span>
+            <button class="btn sm" id="autoMapBtn">Ghép tự động</button>
+          </div>
+          <table class="map-table">
+            <thead>
+              <tr>
+                <th style="width:26%">Field ASC</th>
+                <th style="width:28%">Cột trong Excel</th>
+                <th style="width:12%">Trạng thái</th>
+                <th>Rule áp dụng</th>
+              </tr>
+            </thead>
+            <tbody id="mapBody"></tbody>
+          </table>
+        </div>
+
+        <div class="card hidden" id="refCard" style="margin-top:16px">
+          <div class="card-head"><h3>Danh mục tham chiếu</h3></div>
+          <table class="map-table"><tbody id="refBody"></tbody></table>
+        </div>
+
+        <div class="field-row" style="margin-top:20px">
+          <button class="btn ghost" id="backToSheetBtn">Quay lại</button>
+          <div class="header-space" style="flex:1"></div>
+          <button class="btn primary" id="runValidationBtn">Kiểm tra dữ liệu</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: RESULT ============ -->
+    <section class="view" id="viewResult">
+      <div class="result-wrap">
+        <div class="result-body">
+          <!-- Rail: taxonomy of issues -->
+          <aside class="rail" id="rail"></aside>
+
+          <div class="center-col">
+            <div class="result-top">
+              <div class="summary-cards" id="summaryCards"></div>
+              <div class="tabs" id="resultTabs">
+                <button class="tab on" data-tab="all">Tất cả <b id="cntAll">0</b></button>
+                <button class="tab" data-tab="error">Lỗi <b id="cntErr">0</b></button>
+                <button class="tab" data-tab="warning">Cảnh báo <b id="cntWarn">0</b></button>
+                <button class="tab" data-tab="valid">Hợp lệ <b id="cntValid">0</b></button>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <button class="btn ghost sm hidden" id="railToggle" title="Danh sách lỗi">Lỗi</button>
+              <div class="search-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5" stroke-linecap="round"/></svg>
+                <input class="inp" id="searchInput" placeholder="Tìm trong dữ liệu…  (Ctrl+F)" />
+              </div>
+              <select class="inp" id="searchScope" title="Phạm vi tìm kiếm"><option value="*">Mọi cột</option></select>
+              <span id="activeFilterHost"></span>
+              <span class="result-count" id="resultCount"></span>
+              <button class="btn sm" id="copyErrorsBtn">Sao chép lỗi</button>
+              <button class="btn primary sm" id="exportBtn">Xuất kết quả</button>
+            </div>
+
+            <div class="grid-wrap" id="gridHost"></div>
+          </div>
+
+          <aside class="detail" id="detail">
+            <div class="empty-state">Chọn một ô có tô màu hoặc một loại lỗi để xem chi tiết.</div>
+          </aside>
+        </div>
+
+        <div class="status-bar">
+          <div class="sb-item"><span>Sheet</span> <b id="sbSheet">—</b></div>
+          <div class="sb-item"><span>Dòng</span> <b id="sbRows">0</b></div>
+          <div class="sb-item"><span class="dot e"></span> <b id="sbErr">0</b> lỗi</div>
+          <div class="sb-item"><span class="dot w"></span> <b id="sbWarn">0</b> cảnh báo</div>
+          <div class="sb-item"><span>Chất lượng</span> <b id="sbQuality">—</b></div>
+          <div class="readiness notready" id="readiness">Chưa kiểm tra</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ HELP MODAL ============ -->
+<div class="modal-backdrop hidden" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="helpTitle">Hướng dẫn sử dụng nhanh</h3>
+      <button class="icon-btn" id="helpClose" aria-label="Đóng">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;color:var(--text-2)">ASC-DataCheck giúp bạn kiểm tra chất lượng dữ liệu Excel trước khi import vào hệ thống. Toàn bộ xử lý diễn ra trên máy bạn.</p>
+
+      <div class="guide-step"><div class="gs-n">1</div><div><h5>Chọn tệp Excel</h5><p>Kéo thả hoặc bấm “Chọn tệp”. Hỗ trợ .xlsx, .xls, .xlsm và .csv.</p></div></div>
+      <div class="guide-step"><div class="gs-n">2</div><div><h5>Chọn sheet</h5><p>Chọn sheet cần kiểm tra và xác định dòng tiêu đề nếu tệp có dòng tiêu đề phụ ở trên.</p></div></div>
+      <div class="guide-step"><div class="gs-n">3</div><div><h5>Chọn chế độ</h5><p>“Kiểm tra nhanh” để soi lỗi phổ biến ngay, hoặc “Kiểm tra theo bộ rule” khi cần đối chiếu quy tắc nghiệp vụ.</p></div></div>
+      <div class="guide-step"><div class="gs-n">4</div><div><h5>Ghép cột</h5><p>Ghép cột trong Excel với field của rule. Bấm “Ghép tự động” để hệ thống dò theo tên cột và alias.</p></div></div>
+      <div class="guide-step"><div class="gs-n">5</div><div><h5>Kiểm tra dữ liệu</h5><p>Bấm “Kiểm tra dữ liệu”. Tệp lớn được xử lý theo từng lô, bạn có thể dừng giữa chừng.</p></div></div>
+      <div class="guide-step"><div class="gs-n">6</div><div><h5>Xem lỗi</h5><p>Bấm vào ô được tô màu hoặc vào một loại lỗi ở cột trái để lọc đúng các dòng cần sửa.</p></div></div>
+      <div class="guide-step"><div class="gs-n">7</div><div><h5>Xuất kết quả</h5><p>Xuất tệp Excel có đánh dấu lỗi, chỉ các dòng lỗi, các dòng hợp lệ, hoặc báo cáo lỗi để gửi khách hàng.</p></div></div>
+
+      <div class="eyebrow" style="margin-top:18px">Quy ước màu</div>
+      <div class="legend">
+        <div><span class="sw" style="background:var(--error)"></span> Lỗi — không import được</div>
+        <div><span class="sw" style="background:var(--warn)"></span> Cảnh báo — nên kiểm tra lại</div>
+        <div><span class="sw" style="background:var(--valid)"></span> Hợp lệ</div>
+      </div>
+      <div class="tip">Mẹo: bấm vào một loại lỗi ở cột trái để chỉ hiển thị những dòng có lỗi đó. Bấm vào tên cột trong bảng để xem thống kê của cột.</div>
+    </div>
+    <div class="modal-foot">
+      <label class="checkline"><input type="checkbox" id="dontShowAgain" /> Không hiển thị hướng dẫn khi mở lần đầu</label>
+      <div class="spacer"></div>
+      <button class="btn primary" id="helpCloseBtn">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ EXPORT MODAL ============ -->
+<div class="modal-backdrop hidden" id="exportModal" role="dialog" aria-modal="true">
+  <div class="modal narrow">
+    <div class="modal-head">
+      <h3>Xuất kết quả</h3>
+      <button class="icon-btn" id="exportClose" aria-label="Đóng">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="exportBody"></div>
+    <div class="modal-foot"><div class="spacer"></div><button class="btn" id="exportCloseBtn">Đóng</button></div>
+  </div>
+</div>
+
+<!-- ============ PROGRESS ============ -->
+<div class="progress-overlay hidden" id="progressOverlay">
+  <div class="progress-box">
+    <h4 id="progTitle">Đang kiểm tra dữ liệu…</h4>
+    <p id="progDetail">Chuẩn bị</p>
+    <div class="pbar"><i id="progBar"></i></div>
+    <div class="progress-foot">
+      <span id="progCount"></span>
+      <button class="btn ghost sm" id="progCancel">Hủy</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/exceljs.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/grid.js"></script>
+<script src="js/exporter.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

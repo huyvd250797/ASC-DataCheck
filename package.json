@@ -1,0 +1,19 @@
+{
+  "name": "asc-datacheck",
+  "version": "1.0.0",
+  "description": "Kiểm tra, phân tích và chuẩn hóa dữ liệu Excel trước khi import — chạy hoàn toàn trong trình duyệt.",
+  "private": true,
+  "scripts": {
+    "serve": "python3 -m http.server 8080",
+    "sample": "node tools/make-sample.js",
+    "test:engine": "node tools/test-engine.js",
+    "test:export": "node tools/test-export.js",
+    "test:ui": "node tools/test-ui.js",
+    "test": "node tools/test-engine.js && node tools/test-export.js && node tools/test-ui.js"
+  },
+  "devDependencies": {
+    "exceljs": "4.4.0",
+    "jsdom": "^24.0.0",
+    "xlsx": "0.18.5"
+  }
+}
