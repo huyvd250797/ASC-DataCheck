@@ -138,6 +138,7 @@
     FORMAT: 'Sai định dạng',
     ALLOWED_VALUES: 'Không thuộc danh sách cho phép',
     REFERENCE_EXISTS: 'Không có trong danh mục',
+    ADVANCED_REFERENCE: 'Không khớp tham chiếu nâng cao',
     CROSS_FIELD: 'Sai logic giữa các cột',
     CONDITIONAL: 'Thiếu dữ liệu theo điều kiện',
     WHITESPACE: 'Khoảng trắng thừa',
