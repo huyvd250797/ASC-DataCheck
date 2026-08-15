@@ -7,7 +7,8 @@
 
   var S = {
     file: null, wb: null, sheets: [], aoaCache: {}, sheet: null, headerRowIdx: 0,
-    dataset: null, mode: null, ruleSetId: null, mapping: {}, refs: {},
+    dataset: null, mode: null, ruleSetId: null, mapping: {}, refs: {}, advancedRefs: [],
+    query: { sheet: '', conditions: [], result: null, useAsReference: false },
     issues: [], summary: null, index: null, profiles: null,
     filter: { tab: 'all', rule: null, column: null, search: '', scope: '*' },
     byRuleRows: null, byColumnRows: null, grid: null, previewGrid: null, token: null
@@ -16,6 +17,7 @@
   /* ================= Khởi động ================= */
   function init() {
     $('#versionLabel').textContent = 'v' + APP_VERSION;
+    R.custom = U.store.get('customRules', []);
     applyTheme(U.store.get('theme', 'dark'));
     bindHeader();
     bindHome();
@@ -307,6 +309,18 @@
     $('#autoMapBtn').addEventListener('click', function () { autoMap(); renderMapping(false); U.toast('Đã ghép tự động theo tên cột và alias', 'ok'); });
     $('#backToSheetBtn').addEventListener('click', function () { gotoView('sheet'); });
     $('#runValidationBtn').addEventListener('click', runRuleValidation);
+    $('#cloneRuleBtn').addEventListener('click', function () { openRuleEditor('clone'); });
+    $('#editRuleBtn').addEventListener('click', function () { openRuleEditor('edit'); });
+    $('#newTempRuleBtn').addEventListener('click', function () { openRuleEditor('new'); });
+    $('#deleteRuleBtn').addEventListener('click', deleteCustomRule);
+    $('#addAdvRefBtn').addEventListener('click', function () { addAdvancedRef(); renderMapping(false); });
+    $('#addQueryCondBtn').addEventListener('click', function () { addQueryCondition(); renderQueryBuilder(); });
+    $('#runQueryBtn').addEventListener('click', runQuery);
+    $('#useQueryAsRefBtn').addEventListener('click', useQueryAsReference);
+    $('#ruleEditorClose').addEventListener('click', closeRuleEditor);
+    $('#ruleEditorCancel').addEventListener('click', closeRuleEditor);
+    $('#formatRuleBtn').addEventListener('click', formatRuleJson);
+    $('#saveRuleBtn').addEventListener('click', saveRuleFromEditor);
     $('#exportRuleBtn').addEventListener('click', function () {
       var rs = R.byId(S.ruleSetId);
       U.download(new Blob([JSON.stringify(rs, null, 2)], { type: 'application/json' }), rs.id + '.json');
@@ -322,6 +336,7 @@
           if (!rs.id || !Array.isArray(rs.fields)) throw new Error('bad');
           R.custom = R.custom.filter(function (x) { return x.id !== rs.id; });
           R.custom.unshift(rs);
+          saveCustomRules();
           S.ruleSetId = rs.id;
           fillRuleSelect(); renderMapping(true);
           U.toast('Đã nhập bộ rule "' + rs.name + '"', 'ok');
@@ -339,6 +354,78 @@
     });
     if (!S.ruleSetId) S.ruleSetId = guessRuleSet();
     sel.value = S.ruleSetId;
+    $('#deleteRuleBtn').disabled = !isCustomRule(S.ruleSetId);
+  }
+
+  function saveCustomRules() {
+    U.store.set('customRules', R.custom || []);
+  }
+
+  function isCustomRule(id) {
+    return (R.custom || []).some(function (x) { return x.id === id; });
+  }
+
+  function makeTempRule(rs, suffix) {
+    var out = R.clone(rs);
+    var base = U.normKey(rs.id || rs.name || 'RULE').toUpperCase() || 'RULE';
+    out.id = base + '_' + suffix + '_' + Date.now();
+    out.name = (rs.name || 'Bộ rule') + ' — bản tạm';
+    out.version = 'temp';
+    return out;
+  }
+
+  function openRuleEditor(mode) {
+    var rs = R.byId(S.ruleSetId) || R.presets[0];
+    var editRule = mode === 'new'
+      ? makeTempRule({ id: 'RULE_TAM', name: 'Bộ rule tạm', version: 'temp', desc: 'Bộ rule tạm do người dùng tạo.', fields: [], uniqueGroups: [], crossFields: [] }, 'NEW')
+      : (mode === 'clone' || !isCustomRule(rs.id) ? makeTempRule(rs, mode === 'clone' ? 'COPY' : 'EDIT') : R.clone(rs));
+    $('#ruleEditorTitle').textContent = mode === 'new' ? 'Tạo rule tạm' : (mode === 'clone' ? 'Nhân bản rule' : 'Sửa bộ rule');
+    $('#ruleEditorHint').textContent = isCustomRule(rs.id) && mode === 'edit'
+      ? 'Đang sửa rule tạm đã lưu trong trình duyệt. Anh có thể xóa bằng nút "Xóa rule tạm".'
+      : 'Rule gốc ASC không bị ghi đè. Khi lưu, hệ thống tạo một rule tạm và lưu trong trình duyệt.';
+    $('#ruleJsonInput').value = JSON.stringify(editRule, null, 2);
+    $('#ruleEditorModal').classList.remove('hidden'); lockScroll(true);
+  }
+
+  function closeRuleEditor() {
+    $('#ruleEditorModal').classList.add('hidden'); lockScroll(false);
+  }
+
+  function formatRuleJson() {
+    try {
+      $('#ruleJsonInput').value = JSON.stringify(JSON.parse($('#ruleJsonInput').value), null, 2);
+    } catch (e) { U.toast('JSON chưa hợp lệ, chưa format được.', 'err'); }
+  }
+
+  function saveRuleFromEditor() {
+    try {
+      var rs = JSON.parse($('#ruleJsonInput').value);
+      if (!rs.id || !rs.name || !Array.isArray(rs.fields)) throw new Error('bad');
+      rs.uniqueGroups = rs.uniqueGroups || [];
+      rs.crossFields = rs.crossFields || [];
+      R.custom = (R.custom || []).filter(function (x) { return x.id !== rs.id; });
+      R.custom.unshift(rs);
+      saveCustomRules();
+      S.ruleSetId = rs.id;
+      fillRuleSelect();
+      renderMapping(true);
+      closeRuleEditor();
+      U.toast('Đã lưu bộ rule "' + rs.name + '" trong trình duyệt', 'ok');
+    } catch (e) {
+      U.toast('Rule JSON chưa hợp lệ. Cần có id, name và fields[].', 'err');
+    }
+  }
+
+  function deleteCustomRule() {
+    if (!isCustomRule(S.ruleSetId)) { U.toast('Chỉ xóa được rule tạm/custom.', 'info'); return; }
+    var rs = R.byId(S.ruleSetId);
+    if (!confirm('Xóa rule tạm "' + rs.name + '" khỏi trình duyệt?')) return;
+    R.custom = R.custom.filter(function (x) { return x.id !== S.ruleSetId; });
+    saveCustomRules();
+    S.ruleSetId = null;
+    fillRuleSelect();
+    renderMapping(true);
+    U.toast('Đã xóa rule tạm.', 'ok');
   }
 
   function guessRuleSet() {
@@ -420,6 +507,324 @@
       if (sc > bestScore) { bestScore = sc; best = hd; }
     });
     return bestScore > 0 ? best : null;
+  }
+
+  function refDatasetByName(name) {
+    if (name === '__QUERY__') return S.query.result;
+    return refDatasetOf(name);
+  }
+
+  function refSourceNames() {
+    var arr = S.sheets.map(function (s) { return { value: s.name, text: s.name }; });
+    if (S.query.useAsReference && S.query.result) arr.unshift({ value: '__QUERY__', text: 'Kết quả query tạm' });
+    return arr;
+  }
+
+  function fillSelector(sel, value, rs) {
+    sel.innerHTML = '';
+    var fHead = h('option', { value: '', text: '— Chọn Field ASC hoặc cột Excel —' });
+    sel.appendChild(fHead);
+    (rs.fields || []).forEach(function (f) {
+      sel.appendChild(h('option', { value: 'field:' + f.key, text: 'Field ASC: ' + f.label + ' (' + f.key + ')' }));
+    });
+    S.dataset.headers.forEach(function (hd) {
+      sel.appendChild(h('option', { value: 'col:' + hd.index, text: 'Cột Excel: ' + hd.name + ' (' + hd.letter + ')' }));
+    });
+    sel.value = value || '';
+  }
+
+  function fillRefColumns(sel, sourceName, selected) {
+    sel.innerHTML = '';
+    var ds = sourceName ? refDatasetByName(sourceName) : null;
+    if (!ds || !ds.headers.length) { sel.disabled = true; return; }
+    sel.disabled = false;
+    ds.headers.forEach(function (hd) {
+      sel.appendChild(h('option', { value: String(hd.index), text: hd.name + (hd.letter ? ' (' + hd.letter + ')' : '') }));
+    });
+    if (selected !== undefined && selected !== null) sel.value = String(selected);
+  }
+
+  function selectorToCol(sel) {
+    if (!sel) return -1;
+    if (sel.indexOf('field:') === 0) return S.mapping[sel.slice(6)] === undefined ? -1 : S.mapping[sel.slice(6)];
+    if (sel.indexOf('col:') === 0) return Number(sel.slice(4));
+    return -1;
+  }
+
+  function selectorLabel(sel, rs) {
+    if (!sel) return 'Chưa chọn';
+    if (sel.indexOf('field:') === 0) {
+      var k = sel.slice(6), f = (rs.fields || []).find(function (x) { return x.key === k; });
+      return f ? f.label : k;
+    }
+    var c = selectorToCol(sel);
+    return S.dataset.headers[c] ? S.dataset.headers[c].name : 'Cột ' + (c + 1);
+  }
+
+  function addAdvancedRef() {
+    var rs = R.byId(S.ruleSetId);
+    var firstField = (rs.fields || []).find(function (f) { return S.mapping[f.key] !== undefined; });
+    var target = firstField ? 'field:' + firstField.key : (S.dataset.headers[0] ? 'col:0' : '');
+    var firstSource = refSourceNames()[0];
+    var firstSheet = firstSource ? firstSource.value : '';
+    var refCol = 0;
+    if (firstSheet && firstField && firstSheet !== '__QUERY__') {
+      var hit = findRefColumn(firstSheet, firstField.key, firstField);
+      if (hit) refCol = hit.index;
+    }
+    S.advancedRefs.push({
+      id: 'adv_' + Date.now() + '_' + Math.random().toString(16).slice(2),
+      enabled: true, target: target, sheet: firstSheet, logic: 'AND', severity: 'error',
+      conditions: [{ source: target, op: 'eq', refColIdx: refCol }]
+    });
+  }
+
+  function renderAdvancedRefs(rs) {
+    var host = $('#advRefBody'); host.innerHTML = '';
+    if (!S.advancedRefs.length) {
+      host.appendChild(h('div', { class: 'empty-state', text: 'Chưa có tham chiếu nâng cao. Bấm "Thêm tham chiếu" để tự đối chiếu Field ASC hoặc bất kỳ cột Excel nào.' }));
+      return;
+    }
+    S.advancedRefs.forEach(function (ar, idx) {
+      var item = h('div', { class: 'builder-item' });
+      var title = h('div', { class: 'builder-title' }, [
+        h('b', { text: 'Tham chiếu ' + (idx + 1) }),
+        h('small', { text: selectorLabel(ar.target, rs) }),
+        h('div', { class: 'spacer' })
+      ]);
+      var enabled = h('label', { class: 'checkline' }, [h('input', { type: 'checkbox' }), document.createTextNode(' Bật')]);
+      enabled.querySelector('input').checked = ar.enabled !== false;
+      enabled.querySelector('input').addEventListener('change', function () { ar.enabled = this.checked; });
+      var del = h('button', { class: 'btn ghost sm', text: 'Xóa' });
+      del.addEventListener('click', function () { S.advancedRefs.splice(idx, 1); renderMapping(false); });
+      title.appendChild(enabled); title.appendChild(del); item.appendChild(title);
+
+      var top = h('div', { class: 'field-row compact' });
+      var targetSel = h('select', { class: 'inp grow' }); fillSelector(targetSel, ar.target, rs);
+      targetSel.addEventListener('change', function () { ar.target = this.value; if (ar.conditions[0]) ar.conditions[0].source = this.value; renderMapping(false); });
+      var sheetSel = h('select', { class: 'inp' });
+      refSourceNames().forEach(function (s) { sheetSel.appendChild(h('option', { value: s.value, text: s.text })); });
+      sheetSel.value = ar.sheet || '';
+      sheetSel.addEventListener('change', function () {
+        ar.sheet = this.value;
+        ar.conditions.forEach(function (c) { c.refColIdx = 0; });
+        renderMapping(false);
+      });
+      var logicSel = h('select', { class: 'inp' }, [h('option', { value: 'AND', text: 'AND' }), h('option', { value: 'OR', text: 'OR' })]);
+      logicSel.value = ar.logic || 'AND';
+      logicSel.addEventListener('change', function () { ar.logic = this.value; renderAdvancedRefs(rs); });
+      var sevSel = h('select', { class: 'inp' }, [
+        h('option', { value: 'error', text: 'Lỗi' }), h('option', { value: 'warning', text: 'Cảnh báo' }), h('option', { value: 'info', text: 'Gợi ý' })
+      ]);
+      sevSel.value = ar.severity || 'error';
+      sevSel.addEventListener('change', function () { ar.severity = this.value; });
+      top.appendChild(h('label', { class: 'lbl', text: 'Báo lỗi tại' })); top.appendChild(targetSel);
+      top.appendChild(h('label', { class: 'lbl', text: 'Danh mục' })); top.appendChild(sheetSel);
+      top.appendChild(h('label', { class: 'lbl', text: 'Logic' })); top.appendChild(logicSel);
+      top.appendChild(sevSel);
+      item.appendChild(top);
+
+      var condHost = h('div', {});
+      (ar.conditions || []).forEach(function (c, ci) {
+        var row = h('div', { class: 'cond-row' });
+        row.appendChild(h('div', { class: 'logic-badge', text: ci === 0 ? 'WHERE' : (ar.logic || 'AND') }));
+        var srcSel = h('select', { class: 'inp' }); fillSelector(srcSel, c.source, rs);
+        srcSel.addEventListener('change', function () { c.source = this.value; });
+        var opSel = h('select', { class: 'inp' }, [
+          h('option', { value: 'eq', text: '=' }),
+          h('option', { value: 'contains', text: 'LIKE' }),
+          h('option', { value: 'refContains', text: 'REF LIKE' }),
+          h('option', { value: 'starts', text: 'STARTS' }),
+          h('option', { value: 'notEq', text: '<>' })
+        ]);
+        opSel.value = c.op || 'eq';
+        opSel.addEventListener('change', function () { c.op = this.value; });
+        var refColSel = h('select', { class: 'inp' }); fillRefColumns(refColSel, ar.sheet, c.refColIdx);
+        refColSel.addEventListener('change', function () { c.refColIdx = Number(this.value); });
+        var delCond = h('button', { class: 'btn ghost sm', text: 'Xóa' });
+        delCond.disabled = ar.conditions.length <= 1;
+        delCond.addEventListener('click', function () { ar.conditions.splice(ci, 1); renderMapping(false); });
+        row.appendChild(srcSel); row.appendChild(opSel); row.appendChild(refColSel); row.appendChild(delCond);
+        condHost.appendChild(row);
+      });
+      item.appendChild(condHost);
+      var addCond = h('button', { class: 'btn ghost sm', style: 'margin-top:10px', text: 'Thêm điều kiện tham chiếu' });
+      addCond.addEventListener('click', function () {
+        ar.conditions.push({ source: ar.target, op: 'eq', refColIdx: 0 });
+        renderMapping(false);
+      });
+      item.appendChild(addCond);
+      host.appendChild(item);
+    });
+  }
+
+  function addQueryCondition() {
+    S.query.conditions.push({ logic: S.query.conditions.length ? 'OR' : 'WHERE', colIdx: 0, op: 'contains', value: '' });
+  }
+
+  function renderQueryBuilder() {
+    var sheetSel = $('#querySheetSel');
+    sheetSel.innerHTML = '';
+    S.sheets.forEach(function (s) { sheetSel.appendChild(h('option', { value: s.name, text: s.name })); });
+    S.query.sheet = S.query.sheet || S.sheet || (S.sheets[0] && S.sheets[0].name) || '';
+    sheetSel.value = S.query.sheet;
+    sheetSel.onchange = function () { S.query.sheet = this.value; renderQueryBuilder(); };
+    if (!S.query.conditions.length) addQueryCondition();
+    var ds = S.query.sheet ? refDatasetOf(S.query.sheet) : S.dataset;
+    var body = $('#queryCondBody'); body.innerHTML = '';
+    S.query.conditions.forEach(function (c, idx) {
+      var row = h('div', { class: 'cond-row' });
+      var logic = h('select', { class: 'inp' }, [
+        h('option', { value: 'WHERE', text: 'WHERE' }), h('option', { value: 'AND', text: 'AND' }), h('option', { value: 'OR', text: 'OR' })
+      ]);
+      logic.value = idx === 0 ? 'WHERE' : (c.logic || 'OR');
+      logic.disabled = idx === 0;
+      logic.addEventListener('change', function () { c.logic = this.value; });
+      var col = h('select', { class: 'inp' });
+      (ds.headers || []).forEach(function (hd) { col.appendChild(h('option', { value: String(hd.index), text: hd.name + ' (' + hd.letter + ')' })); });
+      col.value = String(c.colIdx || 0);
+      col.addEventListener('change', function () { c.colIdx = Number(this.value); });
+      var op = h('select', { class: 'inp' }, [
+        h('option', { value: 'contains', text: 'LIKE' }), h('option', { value: 'eq', text: '=' }),
+        h('option', { value: 'notEq', text: '<>' }), h('option', { value: 'starts', text: 'STARTS' }),
+        h('option', { value: 'blank', text: 'BLANK' }), h('option', { value: 'notBlank', text: 'NOT BLANK' })
+      ]);
+      op.value = c.op || 'contains';
+      op.addEventListener('change', function () { c.op = this.value; });
+      var val = h('input', { class: 'inp', value: c.value || '', placeholder: 'Giá trị hoặc $F$3' });
+      val.addEventListener('input', function () { c.value = this.value; });
+      var del = h('button', { class: 'btn ghost sm', text: 'Xóa' });
+      del.disabled = S.query.conditions.length <= 1;
+      del.addEventListener('click', function () { S.query.conditions.splice(idx, 1); renderQueryBuilder(); });
+      row.appendChild(logic); row.appendChild(col); row.appendChild(op); row.appendChild(val); row.appendChild(del);
+      body.appendChild(row);
+    });
+  }
+
+  function colIndexFromLetter(letter) {
+    var n = 0;
+    String(letter || '').toUpperCase().replace(/[^A-Z]/g, '').split('').forEach(function (ch) { n = n * 26 + ch.charCodeAt(0) - 64; });
+    return n - 1;
+  }
+
+  function cellValue(sheetName, addr) {
+    var m = String(addr || '').match(/\$?([A-Z]+)\$?(\d+)/i);
+    if (!m) return '';
+    var aoa = aoaOf(sheetName || S.sheet);
+    var r = Number(m[2]) - 1, c = colIndexFromLetter(m[1]);
+    return aoa[r] ? U.toStr(aoa[r][c]).trim() : '';
+  }
+
+  function resolveQueryValue(raw) {
+    var s = String(raw || '').trim();
+    if ((s[0] === '"' && s[s.length - 1] === '"') || (s[0] === "'" && s[s.length - 1] === "'")) s = s.slice(1, -1);
+    s = s.replace(/"&/g, '').replace(/&"/g, '').replace(/'&/g, '').replace(/&'/g, '');
+    s = s.replace(/\$?[A-Z]+\$?\d+/gi, function (m) { return cellValue(S.sheet, m); });
+    return s.replace(/^%|%$/g, '');
+  }
+
+  function datasetFromRange(sheetName, startCol, startRow, endCol) {
+    var aoa = aoaOf(sheetName);
+    var c0 = colIndexFromLetter(startCol || 'A');
+    var c1 = endCol ? colIndexFromLetter(endCol) : Math.max.apply(null, aoa.map(function (r) { return (r || []).length - 1; }));
+    var r0 = Math.max(0, Number(startRow || 1) - 1);
+    var sliced = aoa.slice(r0).map(function (r) { return (r || []).slice(c0, c1 + 1); });
+    return E.buildDataset(sliced, 0, {});
+  }
+
+  function parseQueryText(txt) {
+    txt = String(txt || '').trim();
+    if (!txt) return null;
+    var out = { sheet: S.query.sheet || S.sheet, dataset: null, conditions: [] };
+    var q = txt.match(/^QUERY\('([^']+)'\!\$?([A-Z]+)\$?(\d+)\:\$?([A-Z]+)?[^;]*;\s*"select\s+\*\s+where\s+(.+)"\)$/i);
+    if (q) {
+      out.sheet = q[1];
+      out.dataset = datasetFromRange(q[1], q[2], q[3], q[4]);
+      txt = 'select * where ' + q[5];
+    }
+    var where = txt.match(/^select\s+\*\s+where\s+(.+)$/i);
+    if (!where) throw new Error('QUERY_PARSE');
+    var parts = where[1].split(/\s+(AND|OR)\s+/i);
+    for (var i = 0; i < parts.length; i += 2) {
+      var logic = i === 0 ? 'WHERE' : String(parts[i - 1]).toUpperCase();
+      var m = parts[i].trim().match(/^([A-Z]+|`[^`]+`)\s*(LIKE|=|<>|!=|CONTAINS|STARTS)\s*(.+)$/i);
+      if (!m) throw new Error('QUERY_PARSE');
+      out.conditions.push({ logic: logic, columnRef: m[1].replace(/`/g, ''), op: m[2].toUpperCase(), value: resolveQueryValue(m[3]) });
+    }
+    return out;
+  }
+
+  function queryColIndex(ds, ref) {
+    if (/^[A-Z]+$/i.test(ref)) return colIndexFromLetter(ref);
+    var want = U.normKey(ref);
+    var h = ds.headers.find(function (x) { return x.key === want || U.normKey(x.name) === want; });
+    return h ? h.index : -1;
+  }
+
+  function matchQueryValue(v, op, rawValue) {
+    var s = U.toStr(v).trim(), n = U.normKey(s), q = U.normKey(resolveQueryValue(rawValue));
+    if (op === 'blank') return U.isBlank(v);
+    if (op === 'notBlank') return !U.isBlank(v);
+    if (op === 'eq' || op === '=') return n === q;
+    if (op === 'notEq' || op === '<>' || op === '!=') return n !== q;
+    if (op === 'starts' || op === 'STARTS') return n.indexOf(q) === 0;
+    return n.indexOf(q) >= 0;
+  }
+
+  function runQuery() {
+    try {
+      var parsed = parseQueryText($('#querySqlInput').value);
+      var ds = parsed && parsed.dataset ? parsed.dataset : refDatasetOf((parsed && parsed.sheet) || S.query.sheet || S.sheet);
+      var conditions = parsed ? parsed.conditions.map(function (c) {
+        return { logic: c.logic, colIdx: queryColIndex(ds, c.columnRef), op: c.op === 'LIKE' || c.op === 'CONTAINS' ? 'contains' : c.op, value: c.value };
+      }) : S.query.conditions;
+      conditions = conditions.filter(function (c) { return c.colIdx >= 0; });
+      if (!conditions.length) throw new Error('NO_COND');
+      var rows = ds.rows.filter(function (row) {
+        var ok = false;
+        conditions.forEach(function (c, idx) {
+          var hit = matchQueryValue(row[c.colIdx], c.op, c.value);
+          if (idx === 0) ok = hit;
+          else if (c.logic === 'AND') ok = ok && hit;
+          else ok = ok || hit;
+        });
+        return ok;
+      });
+      S.query.result = { headers: ds.headers, rows: rows, rowNo: rows.map(function (_, i) { return i + 1; }), headerRowIdx: 0 };
+      S.query.useAsReference = false;
+      renderQueryResult();
+      $('#useQueryAsRefBtn').disabled = rows.length === 0;
+      U.toast('Query trả về ' + U.fmtInt(rows.length) + ' dòng.', rows.length ? 'ok' : 'info');
+    } catch (e) {
+      U.toast(e.message === 'NO_COND' ? 'Chưa có điều kiện query hợp lệ.' : 'Chưa đọc được cú pháp query/SQL.', 'err');
+    }
+  }
+
+  function renderQueryResult() {
+    var host = $('#queryResultHost'); host.innerHTML = '';
+    if (!S.query.result) {
+      host.appendChild(h('div', { class: 'empty-state', text: 'Chạy query để xem nhanh dữ liệu hoặc dùng kết quả làm danh mục tham chiếu tạm.' }));
+      return;
+    }
+    var table = h('table');
+    var thead = h('thead'), trh = h('tr');
+    S.query.result.headers.forEach(function (hd) { trh.appendChild(h('th', { text: hd.name })); });
+    thead.appendChild(trh); table.appendChild(thead);
+    var tb = h('tbody');
+    S.query.result.rows.slice(0, 50).forEach(function (r) {
+      var tr = h('tr');
+      S.query.result.headers.forEach(function (hd) { tr.appendChild(h('td', { text: U.toStr(r[hd.index]) })); });
+      tb.appendChild(tr);
+    });
+    table.appendChild(tb); host.appendChild(table);
+    if (S.query.result.rows.length > 50) host.appendChild(h('div', { class: 'tip', text: 'Đang hiển thị 50 dòng đầu trên tổng ' + U.fmtInt(S.query.result.rows.length) + ' dòng.' }));
+  }
+
+  function useQueryAsReference() {
+    if (!S.query.result || !S.query.result.rows.length) return;
+    S.query.useAsReference = true;
+    renderMapping(false);
+    U.toast('Đã bật kết quả query làm danh mục tham chiếu tạm.', 'ok');
   }
 
   function renderMapping(withAuto) {
@@ -526,6 +931,10 @@
       ]));
     });
 
+    renderAdvancedRefs(rs);
+    renderQueryBuilder();
+    renderQueryResult();
+
     var missing = rs.fields.filter(function (f) { return f.rules.required && S.mapping[f.key] === undefined; });
     $('#mapStatusText').textContent = missing.length
       ? missing.length + ' field bắt buộc chưa ghép: ' + missing.map(function (f) { return f.label; }).join(', ')
@@ -576,8 +985,15 @@
           refs[k] = { sheet: r.sheet, column: r.column, set: E.buildReferenceSet(ds, r.colIdx) };
         });
       } catch (e) { hideProgress(); U.toast('Không dựng được danh mục tham chiếu.', 'err'); return; }
+      var advancedRefs = [];
+      try {
+        advancedRefs = (S.advancedRefs || []).filter(function (r) { return r && r.enabled !== false && r.sheet; }).map(function (r) {
+          var ds = refDatasetByName(r.sheet);
+          return Object.assign({}, r, { dataset: ds, sheet: r.sheet === '__QUERY__' ? 'Kết quả query tạm' : r.sheet });
+        }).filter(function (r) { return r.dataset && r.dataset.rows && r.dataset.rows.length; });
+      } catch (e2) { hideProgress(); U.toast('Không dựng được tham chiếu nâng cao.', 'err'); return; }
 
-      E.validate(S.dataset, rs, S.mapping, refs, updateProgress, S.token, { sheet: S.sheet })
+      E.validate(S.dataset, rs, S.mapping, refs, updateProgress, S.token, { sheet: S.sheet, advancedRefs: advancedRefs })
         .then(function (res) {
           S.issues = res.issues;
           S.profiles = null;

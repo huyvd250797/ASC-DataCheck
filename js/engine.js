@@ -364,6 +364,7 @@
    * @param ruleSet bộ rule
    * @param mapping {fieldKey: colIdx}
    * @param refs {fieldKey: Set<string>} danh mục tham chiếu đã dựng sẵn
+   * opt.advancedRefs: danh sách tham chiếu động do người dùng tạo trên màn ghép cột
    */
   function validate(ds, ruleSet, mapping, refs, onProgress, token, opt) {
     opt = opt || {};
@@ -410,6 +411,32 @@
     function colOf(key) { return mapping[key]; }
     function valOf(row, key) { var c = colOf(key); return c === undefined || c < 0 ? null : row[c]; }
     function push(o) { if (issues.length < MAX_ISSUES_PER_RULE * 4) issues.push(issue(o)); }
+    function selectorCol(sel) {
+      if (!sel) return -1;
+      if (typeof sel === 'string') {
+        if (sel.indexOf('field:') === 0) return colOf(sel.slice(6));
+        if (sel.indexOf('col:') === 0) return Number(sel.slice(4));
+      }
+      if (sel.type === 'field') return colOf(sel.key);
+      if (sel.type === 'column') return Number(sel.index);
+      return -1;
+    }
+    function selectorLabel(sel, col) {
+      if (sel && typeof sel === 'string' && sel.indexOf('field:') === 0) return sel.slice(6);
+      return ds.headers[col] ? ds.headers[col].name : 'Cột ' + (col + 1);
+    }
+    function refHeader(ar, idx) {
+      return ar.dataset && ar.dataset.headers[idx] ? ar.dataset.headers[idx].name : 'Cột ' + (idx + 1);
+    }
+    function cmpVal(left, right, op) {
+      var a = U.toStr(left).trim(), b = U.toStr(right).trim();
+      var an = U.normKey(a), bn = U.normKey(b);
+      if (op === 'contains') return an.indexOf(bn) >= 0;
+      if (op === 'refContains') return bn.indexOf(an) >= 0;
+      if (op === 'starts') return an.indexOf(bn) === 0;
+      if (op === 'notEq') return an !== bn;
+      return an === bn;
+    }
 
     function checkField(f, row, i) {
       var c = colOf(f.key), rules = f.rules || {}, v = row[c];
@@ -634,11 +661,50 @@
       });
     }
 
+    function checkAdvancedRefs(row, i) {
+      (opt.advancedRefs || []).forEach(function (ar) {
+        if (!ar || ar.enabled === false || !ar.dataset || !ar.dataset.rows) return;
+        var tc = selectorCol(ar.target);
+        if (tc === undefined || tc < 0) return;
+        var targetValue = row[tc];
+        if (U.isBlank(targetValue)) return;
+        var conds = (ar.conditions || []).filter(function (c) {
+          return selectorCol(c.source) >= 0 && c.refColIdx !== undefined && c.refColIdx !== null && c.refColIdx >= 0;
+        });
+        if (!conds.length) return;
+        var logic = ar.logic === 'OR' ? 'OR' : 'AND';
+        var matched = ar.dataset.rows.some(function (rr) {
+          var hits = conds.map(function (c) {
+            var sc = selectorCol(c.source);
+            var sv = row[sc], rv = rr[c.refColIdx];
+            if (U.isBlank(sv) || U.isBlank(rv)) return false;
+            return cmpVal(sv, rv, c.op || 'eq');
+          });
+          return logic === 'OR' ? hits.some(Boolean) : hits.every(Boolean);
+        });
+        if (!matched) {
+          var detail = conds.map(function (c) {
+            var sc = selectorCol(c.source);
+            return selectorLabel(c.source, sc) + ' ↔ ' + (ar.sheet || 'Danh mục') + '.' + refHeader(ar, c.refColIdx);
+          }).join(' ' + logic + ' ');
+          push({
+            sheet: sheet, rowIndex: i, rowNo: ds.rowNo[i], col: tc,
+            column: ds.headers[tc] ? ds.headers[tc].name : selectorLabel(ar.target, tc),
+            field: ar.label || selectorLabel(ar.target, tc),
+            value: U.toStr(targetValue), severity: ar.severity || 'error', ruleType: 'ADVANCED_REFERENCE',
+            message: 'Không tìm thấy bản ghi tham chiếu thỏa điều kiện: ' + detail + '.',
+            suggestion: 'Kiểm tra dữ liệu nguồn hoặc bổ sung bản ghi trong danh mục tham chiếu.'
+          });
+        }
+      });
+    }
+
     return chunkLoop(ds.rows.length, function (i) {
       var row = ds.rows[i];
       for (var f = 0; f < fields.length; f++) checkField(fields[f], row, i);
       checkCross(row, i);
       checkGroups(row, i);
+      checkAdvancedRefs(row, i);
     }, onProgress, token, 'Đang kiểm tra dữ liệu').then(function () {
       // Phát hiện trùng sau khi đã quét hết
       fields.forEach(function (f) {
